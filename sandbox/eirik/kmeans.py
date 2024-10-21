@@ -10,7 +10,7 @@ import numpy as np
 
 def load_data():
     cwd = os.getcwd()
-    df_raw = pd.read_csv(f"{cwd}/../../data/signal_metrics.csv")
+    df_raw = pd.read_csv(f"{cwd}/data/signal_metrics.csv")
 
     # feature encoding
     df_raw["Network Type"] = df_raw["Network Type"].map({"3G": 0, "4G": 1, "5G": 2, "LTE": 3})
