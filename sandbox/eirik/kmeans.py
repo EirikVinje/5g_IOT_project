@@ -8,7 +8,7 @@ import pandas as pd
 import numpy as np
 
 
-def load_signal_data(include_features : list = ["Longitude","Latitude", "Signal Strength (dBm)", "Data Throughput (Mbps)","Network Type"]):
+def load_signal_data():
     
     cwd = os.getcwd()
     df_raw = pd.read_csv(f"{cwd}/data/signal_metrics.csv")
@@ -41,38 +41,53 @@ def load_signal_data(include_features : list = ["Longitude","Latitude", "Signal 
 
     clusterdata = clusterdata.to_numpy()
 
-    include_features = [feature_order.index(x) for x in include_features]
-
-    clusterdata = clusterdata[:, include_features]
-
     return clusterdata, origdata
 
 
 class CustomKMeans:
-    def __init__(self, 
-                 n_clusters : int=6, 
-                 max_iter : int=100, 
-                 radius : int=5, 
-                 feature_scale : list=[5,5],
-                 feature_plus : list=[0,1],
-                 feature_normalize : list=[0,1,2,3]):
+    def __init__(
+            self,
+            include_features : list=["Longitude", "Latitude", "Signal Strength (dBm)", "Data Throughput (Mbps)", "Network Type"],
+            features_to_scale : list=["Longitude", "Latitude", "Network Type"],
+            feature_scales : list=[10, 10, 4],
+            n_clusters : int=6,
+            max_iter : int=100, 
+            radius : int=5,
+            tol : float=0.0001,
+            algorithm : str="lloyd",
+    ):
 
-        assert len(feature_scale) == len(feature_plus), "feature_scale and feature_plus must have same length"
+        for feature in features_to_scale:
+            if feature not in include_features:
+                raise ValueError(f"feature to scale : {feature} : is not in include_features")
 
-        self.model = KMeans(n_clusters=n_clusters, max_iter=max_iter, random_state=42)
+        if len(feature_scales) != len(features_to_scale):
+            raise ValueError("feature_scales and features_to_scale must have same length")
+
+        self.model = KMeans(n_clusters=n_clusters, 
+                            max_iter=max_iter, 
+                            random_state=42,
+                            tol=tol,
+                            algorithm=algorithm)
+        
+        
         self.radius = radius
-        self.feature_scale = feature_scale
-        self.feature_plus = feature_plus
-        self.feature_normalize = feature_normalize
         self.centroids = None
 
-        self.feature_names = [
-        "Longitude",
-        "Latitude", 
-        "Signal Strength (dBm)", 
-        "Data Throughput (Mbps)",
-        "Network Type",
-        ]
+        self.include_features = include_features
+        
+        self.feature_to_scale = features_to_scale
+        self.feature_scales = feature_scales
+        
+        self.features_to_normalize = ["Longitude", "Latitude", "Signal Strength (dBm)", "Data Throughput (Mbps)"]
+
+        self.all_features_ordered = [
+            "Longitude", 
+            "Latitude", 
+            "Signal Strength (dBm)", 
+            "Data Throughput (Mbps)", 
+            "Network Type"
+            ]
 
     
     def haversine_distance(self, lon1, lat1, lon2, lat2):
@@ -96,17 +111,25 @@ class CustomKMeans:
         self.max_latitude = X[:, 1].max()
         self.min_latitude = X[:, 1].min()
 
-        X[:, self.feature_normalize] = self.normalize(X[:, self.feature_normalize])
+        feature_to_normalize_idx = [self.all_features_ordered.index(feature) for feature in self.features_to_normalize]
+
+        X[:, feature_to_normalize_idx] = self.normalize(X[:, feature_to_normalize_idx])
         
-        X[:, self.feature_plus] *= self.feature_scale
+        feature_to_scale_idx = [self.all_features_ordered.index(feature) for feature in self.feature_to_scale]
+
+        X[:, feature_to_scale_idx] *= self.feature_scales
+        
+        features_to_include_idx = [self.all_features_ordered.index(feature) for feature in self.include_features]
+
+        X = X[:, features_to_include_idx]
         
         self.model.fit(X)
         
         self.centroids = self.model.cluster_centers_
         
-        self.longlat_centroids = self.centroids[:, self.feature_plus]
+        self.longlat_centroids = self.centroids[:, [0,1]]
         
-        self.longlat_centroids /= self.feature_scale
+        self.longlat_centroids /= self.feature_scales[:2]
 
         # denormalize centroids for plotting
         self.longlat_centroids[:, 0] = (self.longlat_centroids[:, 0] * (self.max_longitude - self.min_longitude)) + self.min_longitude
@@ -118,7 +141,7 @@ class CustomKMeans:
         assert self.centroids is not None, "Please call fit before predict."
         
         pred = self.model.predict(x)[0]
-        x[:, self.feature_plus] /= self.feature_scale
+        x[:, [0, 1]] /= self.feature_scales[:2]
 
         # denormalize longitude and latitude features
         x_longitude = (x[0][0] * (self.max_longitude - self.min_longitude)) + self.min_longitude
@@ -144,10 +167,6 @@ class CustomKMeans:
         X = (X - X_mins) / (X_maxs - X_mins)
 
         return X
-
-
-def radius_to_size(radius):
-    return np.pi * (radius ** 2)
 
 
 if __name__ == "__main__":
