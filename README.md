@@ -1,4 +1,4 @@
-# 5g_IOT_project
+# IoTClusterPilot
 This repository holds the code for the IKT454 project.
 
 ## Project topic proposal
