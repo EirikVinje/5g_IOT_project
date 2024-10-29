@@ -2,6 +2,7 @@ import datetime
 import argparse
 import logging
 import time
+import os
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -101,6 +102,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--n_trials", type=int, default=100)
     args = parser.parse_args()
+
+    if not os.path.isfile("./setup.sh"):
+        raise Exception("Please run this file from root of repository.")
 
     logger.info(f"Starting hyperparameter search with {args.n_trials} trials...")
 

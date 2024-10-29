@@ -171,6 +171,9 @@ class CustomKMeans:
 
 if __name__ == "__main__":
 
+    if not os.path.isfile("./setup.sh"):
+        raise Exception("Please run this file from root of repository.")
+
     clusterdata, origdata = load_signal_data()
     radius=10
     n_clusters=6
