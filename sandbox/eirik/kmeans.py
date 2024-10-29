@@ -172,15 +172,29 @@ class CustomKMeans:
 if __name__ == "__main__":
 
     clusterdata, origdata = load_signal_data()
+    radius=10
+    n_clusters=6
+    feature_scales=[10,10,1,1,1]
+    features_to_scale=['Longitude','Latitude','Network Type', 'Signal Strength (dBm)', 'Data Throughput (Mbps)']
     
-    kmeans = CustomKMeans(feature_scale=20, 
-                          radius=5)
+    kmeans = CustomKMeans(features_to_scale=features_to_scale, 
+                          feature_scales=feature_scales, 
+                          n_clusters=n_clusters, 
+                          max_iter=100,
+                          radius=radius)
     
     kmeans.fit(clusterdata)
 
-    labels = [kmeans.predict_one(x.reshape(1,-1)) for x in clusterdata]
+    labels = np.array([kmeans.predict_one(x.reshape(1,-1)) for x in clusterdata])
+
+    is_outlier = np.where(labels == -1)[0].shape[0]
+    
+    coverage_ratio = (len(labels) - is_outlier) / len(labels)
+    print(f"Coverage ratio: {coverage_ratio}")
     
     plt.scatter(origdata["Longitude"], origdata["Latitude"], c=labels, cmap='viridis')
     plt.scatter(kmeans.longlat_centroids[:, 0], kmeans.longlat_centroids[:, 1], c='red', s=50)
+    plt.title(f"Coverage ratio: {round(coverage_ratio,3)}")
 
-    plt.savefig(f"./plots/kmeans_{datetime.datetime.now()}.png")
+    #plt.savefig(f"./plots/kmeans_{datetime.datetime.now()}.png")
+    plt.savefig(f"./plots/kmeans_radius{radius}.png")
