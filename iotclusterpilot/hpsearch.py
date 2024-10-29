@@ -9,7 +9,7 @@ import optuna
 
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
-from kmeans import CustomKMeans, load_signal_data
+from iotclusterpilot.kmeans import CustomKMeans, load_signal_data
 
 logger = logging.getLogger('cluster hpsearch')
 logger.setLevel(logging.DEBUG)
