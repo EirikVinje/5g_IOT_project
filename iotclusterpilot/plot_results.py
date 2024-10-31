@@ -1,11 +1,13 @@
 import os
 import math
 import datetime
+import argparse
 import matplotlib
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 
 from sklearn.cluster import KMeans
 from kmeans import load_signal_data
@@ -133,7 +135,7 @@ class CustomKMeans:
 def radius_to_size(radius):
     return np.pi * (radius ** 2)
 
-if __name__=='__main__':
+def plot_single(clusterdata, origdata, radius, n_clusters, plot=True):
     clusterdata, origdata = load_signal_data()
 
     include_features = ["Longitude", "Latitude", "Signal Strength (dBm)", "Data Throughput (Mbps)", "Network Type"]
@@ -141,8 +143,6 @@ if __name__=='__main__':
 
     all_features_ordered = ["Longitude", "Latitude", "Signal Strength (dBm)", "Data Throughput (Mbps)", "Network Type"]
     feature_scales=[10,10,1,1]
-    radius=7
-    n_clusters=8
     
     kmeans = CustomKMeans(include_features=include_features,
                           features_to_scale=features_to_scale, 
@@ -158,71 +158,108 @@ if __name__=='__main__':
     is_outlier = np.where(labels == -1)[0].shape[0]
     
     coverage_ratio = (len(labels) - is_outlier) / len(labels)
-    print(f"Coverage ratio: {coverage_ratio}")
 
-    outliers = labels==-1
-    inliers = labels!=-1
+    if plot:
+        outliers = labels==-1
+        inliers = labels!=-1
 
-    plt.figure(figsize=(8, 9))  # Made figure slightly taller to accommodate bottom text
+        plt.figure(figsize=(8, 9))  # Made figure slightly taller to accommodate bottom text
 
-    #plt.scatter(origdata["Longitude"], origdata["Latitude"], c=labels, cmap='viridis')
+        #plt.scatter(origdata["Longitude"], origdata["Latitude"], c=labels, cmap='viridis')
 
-    plt.scatter(origdata["Longitude"][inliers], origdata["Latitude"][inliers], c=labels[inliers], cmap='viridis', s=15, alpha=0.6)
+        plt.scatter(origdata["Longitude"][inliers], origdata["Latitude"][inliers], c=labels[inliers], cmap='viridis', s=15, alpha=0.6)
 
-    plt.scatter(origdata["Longitude"][outliers], origdata["Latitude"][outliers], color='red', s=15, alpha=0.6, label='Outliers')
+        plt.scatter(origdata["Longitude"][outliers], origdata["Latitude"][outliers], color='red', s=15, alpha=0.6, label='Outliers')
 
 
-    for center in kmeans.longlat_centroids:
-        print(center)
-        #circle1 = plt.Circle((center[0], center[1]), radius/(120*math.cos(math.radians(center[1]))), color='red', alpha=0.2)
-        circle = matplotlib.patches.Ellipse(xy=(center[0], center[1]), width=radius/(111.320*math.cos(math.radians(center[1])))*2, height=2*(radius/110.574), color='grey', alpha=0.2)
+        for center in kmeans.longlat_centroids:
+            #print(center)
+            #circle1 = plt.Circle((center[0], center[1]), radius/(120*math.cos(math.radians(center[1]))), color='red', alpha=0.2)
+            circle = matplotlib.patches.Ellipse(xy=(center[0], center[1]), width=radius/(111.320*math.cos(math.radians(center[1])))*2, height=2*(radius/110.574), color='grey', alpha=0.2)
+            
+            plt.gca().add_patch(circle)
+            #plt.gca().add_patch(circle1)
+            #print(circle)
+
+        plt.scatter(kmeans.longlat_centroids[:, 0], kmeans.longlat_centroids[:, 1], c='blue', s=20, marker="x")  # Centroid markers
+
+        plt.title(f"Coverage ratio: {round(coverage_ratio, 3)}")
+        # Annotation for feature parameters
+        annotation_text = (
+            f"include_features={include_features}\n"
+            f"feature_to_scale={features_to_scale}\n"
+            f"feature_scale={feature_scales}\n"
+            f"n_clusters={n_clusters}\n"
+            f"radius={radius}\n"
+        )
+
+        plt.subplots_adjust(bottom=0.3)
+        ax = plt.gca()
+        ax.text(0.5, -0.2, annotation_text, transform=ax.transAxes,
+                horizontalalignment='center', verticalalignment='center',
+                bbox=dict(facecolor='white', alpha=0.8, edgecolor='none'))
+
+        plot_path = f"./plots/kmeans_radius{radius}_n-clusters{n_clusters}_features{len(include_features)}.png"
+        plt.savefig(plot_path)
+    return coverage_ratio
+
+def run_experiment(variant="radius"):
+    clusterdata, origdata = load_signal_data()
+    if variant == "radius":
+        # change from plt to plotly go
+        fig = go.Figure()
+        for n_clusters in range(3, 9):
+            coverage_ratios = []
+            for radius in range(1, 11):
+                coverage_ratio = plot_single(clusterdata, origdata, radius, n_clusters, plot=False)
+                coverage_ratios.append((radius, n_clusters, coverage_ratio))
+
+
+            #plt.plot([x[0] for x in coverage_ratios], [x[2] for x in coverage_ratios], label=f"n_clusters={n_clusters}")
+            fig.add_trace(go.Scatter(x=[x[0] for x in coverage_ratios], y=[x[2] for x in coverage_ratios], mode='lines', name=f"n_clusters={n_clusters}"))
         
-        plt.gca().add_patch(circle)
-        #plt.gca().add_patch(circle1)
-        print(circle)
+        ''' plt.xlabel("Radius")
+        plt.ylabel("Coverage ratio")
+        plt.title("Adjusting radius for different number of clusters")
+        plt.legend()
+        plt.savefig("./plots/adjusting_radius.png")'''
+        fig.update_layout(title="Adjusting radius for different number of clusters", xaxis_title="Radius", yaxis_title="Coverage ratio")
+        fig.write_image("./plots/adjusting_radius.png", width=800, height=600)
 
-    plt.scatter(kmeans.longlat_centroids[:, 0], kmeans.longlat_centroids[:, 1], c='black', s=10, marker="x")  # Centroid markers
+    elif variant == "n_clusters":
+        # change from plt to plotly go
+        fig = go.Figure()
+        for radius in range(5, 11):
+            coverage_ratios = []
+            for n_clusters in range(1, 11):
+                coverage_ratio = plot_single(clusterdata, origdata, radius, n_clusters, plot=False)
+                coverage_ratios.append((radius, n_clusters, coverage_ratio))
 
-    plt.title(f"Coverage ratio: {round(coverage_ratio, 3)}")
-    # Annotation for feature parameters
-    annotation_text = (
-        f"include_features={include_features}\n"
-        f"feature_to_scale={features_to_scale}\n"
-        f"feature_scale={feature_scales}\n"
-        f"n_clusters={n_clusters}\n"
-        f"radius={radius}\n"
-    )
 
-    plt.subplots_adjust(bottom=0.3)
-    ax = plt.gca()
-    ax.text(0.5, -0.2, annotation_text, transform=ax.transAxes,
-            horizontalalignment='center', verticalalignment='center',
-            bbox=dict(facecolor='white', alpha=0.8, edgecolor='none'))
+            #plt.plot([x[0] for x in coverage_ratios], [x[2] for x in coverage_ratios], label=f"n_clusters={n_clusters}")
+            fig.add_trace(go.Scatter(x=[x[1] for x in coverage_ratios], y=[x[2] for x in coverage_ratios], mode='lines', name=f"radius={radius}"))
+        
+        ''' plt.xlabel("Radius")
+        plt.ylabel("Coverage ratio")
+        plt.title("Adjusting radius for different number of clusters")
+        plt.legend()
+        plt.savefig("./plots/adjusting_radius.png")'''
+        fig.update_layout(title="Adjusting n_clusters for different number of radiuses", xaxis_title="n_clusters", yaxis_title="Coverage ratio")
+        fig.write_image("./plots/adjusting_n_clusters.png", width=800, height=600)
 
-    plot_path = f"./plots/kmeans_radius{radius}_n-clusters{n_clusters}_features{len(include_features)}.png"
-    plt.savefig(plot_path)
-    plt.show()
-'''
-    plt.scatter(origdata["Longitude"], origdata["Latitude"], c=labels, cmap='viridis')
-    plt.scatter(kmeans.longlat_centroids[:, 0], kmeans.longlat_centroids[:, 1], c='red', s=radius_to_size(radius), alpha=0.5)
-    plt.title(f"Coverage ratio: {round(coverage_ratio,3)}")
+    return None
 
-    annotation_text = (
-        f"include_features={include_features}\n"
-        f"feature_to_scale={features_to_scale}\n"
-        f"feature_scale={feature_scales}\n"
-        f"n_clusters={n_clusters}\n"
-        f"radius={radius}\n"
-    )
-    plt.subplots_adjust(bottom=0.3)  # Make room for text at bottom
-    ax = plt.gca()
-    ax.text(0.5, -0.2, annotation_text,
-            transform=ax.transAxes,
-            horizontalalignment='center',
-            verticalalignment='center',
-            bbox=dict(facecolor='white', alpha=0.8, edgecolor='none'))
+if __name__=='__main__':
+    argparser = argparse.ArgumentParser()
+    argparser.add_argument("--radius", type=int, default=6)
+    argparser.add_argument("--n_clusters", type=int, default=6)
+    argparser.add_argument("--variant", type=str, default="radius")
+
+    args = argparser.parse_args()
+
+    clusterdata, origdata = load_signal_data()
+    cov_ratio = plot_single(clusterdata, origdata, args.radius, args.n_clusters)
+    print(f"Coverage ratio: {cov_ratio}")
+
+    run_experiment(variant=args.variant)
     
-    plot_path = f"./plots/kmeans_radius{radius}_n-clusters{n_clusters}_features{len(include_features)}.png"
-
-    plt.savefig(plot_path)'''
-
