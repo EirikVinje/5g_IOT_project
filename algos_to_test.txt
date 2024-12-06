@@ -1,0 +1,5 @@
+
+- SpectralClustering
+- AgglomerativeClustering
+- MeanShift (maybe)
+- Birch
