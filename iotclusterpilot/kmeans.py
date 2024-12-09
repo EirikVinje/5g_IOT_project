@@ -15,11 +15,18 @@ def load_signal_data():
 
     # feature encoding
     df_raw["Network Type"] = df_raw["Network Type"].map({"3G": 0, "4G": 1, "5G": 2, "LTE": 3})
-
+    # only keep those with 5G
+    df_raw = df_raw[df_raw["Network Type"] == 2].reset_index(drop=True).reset_index(drop=False)
     # choose area
-    area = "Fraser Road"
-    origdata = df_raw[df_raw["Locality"] == area].reset_index(drop=True).reset_index(drop=False)
-
+    # area = "Fraser Road"
+    #origdata = df_raw[(df_raw["Locality"] == area)].reset_index(drop=True).reset_index(drop=False)
+    
+    # keep only those rows with the 10 most popular localities
+    origdata = df_raw[df_raw["Locality"].isin(df_raw["Locality"].value_counts().head(10).index)].reset_index(drop=True).reset_index(drop=False)
+    
+    print(origdata["Locality"].value_counts())
+    print('number of rows:', origdata.shape[0])
+    
     origdata = origdata.rename(columns={'index': 'node'})
 
     features = ["Longitude",

@@ -2,6 +2,7 @@ import os
 import math
 import datetime
 import argparse
+import tikzplotly
 import matplotlib
 
 import numpy as np
@@ -163,7 +164,7 @@ def plot_single(clusterdata, origdata, radius, n_clusters, plot=True):
         outliers = labels==-1
         inliers = labels!=-1
 
-        plt.figure(figsize=(8, 9))  # Made figure slightly taller to accommodate bottom text
+        plt.figure(figsize=(9, 9))  # Made figure slightly taller to accommodate bottom text
 
         #plt.scatter(origdata["Longitude"], origdata["Latitude"], c=labels, cmap='viridis')
 
@@ -183,8 +184,13 @@ def plot_single(clusterdata, origdata, radius, n_clusters, plot=True):
 
         plt.scatter(kmeans.longlat_centroids[:, 0], kmeans.longlat_centroids[:, 1], c='blue', s=20, marker="x")  # Centroid markers
 
-        plt.title(f"Coverage ratio: {round(coverage_ratio, 3)}")
-        # Annotation for feature parameters
+        plt.title(f"Custom K-Means clustering (Coverage ratio: {round(coverage_ratio, 3)})", fontsize=20)
+        plt.xlabel("Longitude", fontsize=15, labelpad=10)
+        plt.ylabel("Latitude", fontsize=15, labelpad=10)
+        plt.xticks(fontsize=12)
+        plt.yticks(fontsize=12)
+
+        '''# Annotation for feature parameters
         annotation_text = (
             f"include_features={include_features}\n"
             f"feature_to_scale={features_to_scale}\n"
@@ -197,7 +203,7 @@ def plot_single(clusterdata, origdata, radius, n_clusters, plot=True):
         ax = plt.gca()
         ax.text(0.5, -0.2, annotation_text, transform=ax.transAxes,
                 horizontalalignment='center', verticalalignment='center',
-                bbox=dict(facecolor='white', alpha=0.8, edgecolor='none'))
+                bbox=dict(facecolor='white', alpha=0.8, edgecolor='none'))'''
 
         plot_path = f"./plots/kmeans_radius{radius}_n-clusters{n_clusters}_features{len(include_features)}.png"
         plt.savefig(plot_path)
@@ -225,6 +231,7 @@ def run_experiment(variant="radius"):
         plt.savefig("./plots/adjusting_radius.png")'''
         fig.update_layout(title="Adjusting radius for different number of clusters", xaxis_title="Radius", yaxis_title="Coverage ratio")
         fig.write_image("./plots/adjusting_radius.png", width=800, height=600)
+        tikzplotly.save("adjusting_radius.tex", fig)
 
     elif variant == "n_clusters":
         # change from plt to plotly go
@@ -246,6 +253,7 @@ def run_experiment(variant="radius"):
         plt.savefig("./plots/adjusting_radius.png")'''
         fig.update_layout(title="Adjusting n_clusters for different number of radiuses", xaxis_title="n_clusters", yaxis_title="Coverage ratio")
         fig.write_image("./plots/adjusting_n_clusters.png", width=800, height=600)
+        tikzplotly.save("adjusting_n_clusters.tex", fig)
 
     return None
 
