@@ -10,7 +10,8 @@ import optuna
 
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
-from iotclusterpilot.kmeans import CustomKMeans, load_signal_data
+from plot_results import CustomKMeans
+from kmeans import load_signal_data
 
 logger = logging.getLogger('cluster hpsearch')
 logger.setLevel(logging.DEBUG)
@@ -30,7 +31,7 @@ def set_feature_scales(features_to_scale : list, trial : optuna.Trial):
             feature_scales.append(trial.suggest_int("longitude_latitude_scale", 1, 10))
 
         elif feature in ["Network Type", "Signal Strength (dBm)", "Data Throughput (Mbps)"]:
-            feature_scales.append(trial.suggest_int(f"{feature}_scale", 1, 5))
+            feature_scales.append(trial.suggest_int(f"{feature}_scale", 1, 10))
 
         else:
             raise ValueError(f"feature : {feature} : not in include_features or features_to_scale")
@@ -40,21 +41,20 @@ def set_feature_scales(features_to_scale : list, trial : optuna.Trial):
 
 def objective(trial):
 
-    clusterdata, _ = load_signal_data()
+    clusterdata, _ = load_signal_data(remove_features=["Network Type"])
     
     include_features = [
         "Longitude",
         "Latitude",
         "Signal Strength (dBm)", 
         "Data Throughput (Mbps)",
-        "Network Type",
         ]
     
     features_to_scale = [
         "Longitude",
         "Latitude",
         # "Network Type",
-        # "Signal Strength (dBm)",
+        "Signal Strength (dBm)",
         "Data Throughput (Mbps)" 
         ]
     
@@ -65,7 +65,7 @@ def objective(trial):
     trial.set_user_attr("feature_scale", feature_scales)
     n_clusters = trial.suggest_int("n_clusters", 6, 8)
     max_iter = trial.suggest_int("max_iter", 100, 500)
-    radius = trial.suggest_int("radius", 7, 7)
+    radius = trial.suggest_float("radius", 2.0, 10.0)
     
     algorithm = trial.suggest_categorical("algorithm", ["lloyd", "elkan"])
     tol = trial.suggest_float("tol", 0.00001, 0.01, log=True)
@@ -74,7 +74,9 @@ def objective(trial):
                           max_iter=max_iter, 
                           radius=radius,
                           include_features=include_features,
+                          features_to_normalize=include_features,
                           features_to_scale=features_to_scale,
+                          all_features_ordered=include_features,
                           feature_scales=feature_scales,
                           algorithm=algorithm,
                           tol=tol)
@@ -86,6 +88,8 @@ def objective(trial):
     is_outlier = np.where(labels == -1)[0].shape[0]
 
     opt_value = 1.0 - (is_outlier / clusterdata.shape[0])
+
+    opt_value = opt_value/(0.05*radius + 1)
 
     if trial.number != 0:
         print(f"------ current value and trial : ({np.round(opt_value, 3)}, {trial.number}) | best value and trial : ({np.round(study.best_trial.value, 3)}, {study.best_trial.number}) ------", end="\r")
@@ -121,7 +125,7 @@ if __name__ == "__main__":
     feature_to_scale = study.best_trials[0].user_attrs["feature_to_scale"]
     include_features = study.best_trials[0].user_attrs["include_features"]
 
-    clusterdata, origdata = load_signal_data()
+    clusterdata, origdata = load_signal_data(remove_features=["Network Type"])
     
     kmeans = CustomKMeans(
         include_features=include_features,

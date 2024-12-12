@@ -136,21 +136,29 @@ class CustomKMeans:
 def radius_to_size(radius):
     return np.pi * (radius ** 2)
 
-def plot_single(clusterdata, origdata, radius, n_clusters, plot=True):
-    clusterdata, origdata = load_signal_data()
-
-    include_features = ["Longitude", "Latitude", "Signal Strength (dBm)", "Data Throughput (Mbps)", "Network Type"]
+def plot_single(radius, n_clusters, remove_features, feature_weighting, plot=True):
+    clusterdata, origdata = load_signal_data(remove_features=remove_features)
+    include_features = ["Longitude", "Latitude", "Signal Strength (dBm)", "Data Throughput (Mbps)"]
     features_to_scale=['Longitude','Latitude', 'Signal Strength (dBm)', 'Data Throughput (Mbps)']
+    all_features_ordered = ["Longitude", "Latitude", "Signal Strength (dBm)", "Data Throughput (Mbps)"]
 
-    all_features_ordered = ["Longitude", "Latitude", "Signal Strength (dBm)", "Data Throughput (Mbps)", "Network Type"]
-    feature_scales=[10,10,1,1]
+    feature_scales=feature_weighting
+
+    if remove_features:
+        include_features = [feature for feature in include_features if feature not in remove_features]
+        features_to_scale = [feature for feature in features_to_scale if feature not in remove_features]
+        all_features_ordered = [feature for feature in all_features_ordered if feature not in remove_features]
+        feature_scales = [feature_scales[i] for i, feature in enumerate(features_to_scale)]
     
     kmeans = CustomKMeans(include_features=include_features,
                           features_to_scale=features_to_scale, 
-                          feature_scales=feature_scales, 
-                          n_clusters=n_clusters, 
-                          max_iter=100,
-                          radius=radius)
+                          features_to_normalize=features_to_scale,
+                          feature_scales=[4,4,1,1], 
+                          n_clusters=8, 
+                          max_iter=199,
+                          radius=7.61,
+                          algorithm='lloyd',
+                          tol=0.000410282)
     
     kmeans.fit(clusterdata)
 
@@ -209,21 +217,28 @@ def plot_single(clusterdata, origdata, radius, n_clusters, plot=True):
         plt.savefig(plot_path)
     return coverage_ratio
 
-def run_experiment(variant="radius"):
-    clusterdata, origdata = load_signal_data()
+def run_experiment(remove_features, feature_weighting, variant="radius"):
+    clusterdata, origdata = load_signal_data(remove_features=remove_features)
     if variant == "radius":
         # change from plt to plotly go
         fig = go.Figure()
+        total_coverage_ratios = [0 for _ in range(10)]
         for n_clusters in range(3, 9):
             coverage_ratios = []
             for radius in range(1, 11):
-                coverage_ratio = plot_single(clusterdata, origdata, radius, n_clusters, plot=False)
+                #print(f"n_clusters={n_clusters}, radius={radius}")
+                #print(f"remove_features={remove_features}, feature_weighting={feature_weighting}")
+                coverage_ratio = plot_single(radius, n_clusters, remove_features, feature_weighting, plot=False)
                 coverage_ratios.append((radius, n_clusters, coverage_ratio))
-
-
+                #print(coverage_ratio)
+                total_coverage_ratios[radius-1] += coverage_ratio
             #plt.plot([x[0] for x in coverage_ratios], [x[2] for x in coverage_ratios], label=f"n_clusters={n_clusters}")
             fig.add_trace(go.Scatter(x=[x[0] for x in coverage_ratios], y=[x[2] for x in coverage_ratios], mode='lines', name=f"n_clusters={n_clusters}"))
+        # plot the average line that takes the mean of all n_clusters for each radius
+        print(total_coverage_ratios)
+        avg_coverage_ratios = [(i+1, total_coverage_ratios[i]/6) for i in range(10)]
         
+        fig.add_trace(go.Scatter(x=[x[0] for x in avg_coverage_ratios], y=[x[1] for x in avg_coverage_ratios], mode='lines', name="Average"))
         ''' plt.xlabel("Radius")
         plt.ylabel("Coverage ratio")
         plt.title("Adjusting radius for different number of clusters")
@@ -233,13 +248,17 @@ def run_experiment(variant="radius"):
         fig.write_image("./plots/adjusting_radius.png", width=800, height=600)
         tikzplotly.save("adjusting_radius.tex", fig)
 
+        # plot the average coverage ratio for each n_clusters
+        
+
+
     elif variant == "n_clusters":
         # change from plt to plotly go
         fig = go.Figure()
         for radius in range(5, 11):
             coverage_ratios = []
             for n_clusters in range(1, 11):
-                coverage_ratio = plot_single(clusterdata, origdata, radius, n_clusters, plot=False)
+                coverage_ratio = plot_single(clusterdata, origdata, radius, n_clusters, remove_features, feature_weighting, plot=False)
                 coverage_ratios.append((radius, n_clusters, coverage_ratio))
 
 
@@ -259,15 +278,20 @@ def run_experiment(variant="radius"):
 
 if __name__=='__main__':
     argparser = argparse.ArgumentParser()
-    argparser.add_argument("--radius", type=int, default=6)
+    argparser.add_argument("--radius", type=float, default=6)
     argparser.add_argument("--n_clusters", type=int, default=6)
     argparser.add_argument("--variant", type=str, default="radius")
+    argparser.add_argument("--remove_features", type=str, default="Network Type,Data Throughput (Mbps)")
+    argparser.add_argument("--feature_weighting", type=str, default="10,10,1")
 
     args = argparser.parse_args()
+    remove_features = args.remove_features.split(",")
+    feature_weighting = args.feature_weighting.split(",")
+    feature_weighting = [int(x) for x in feature_weighting]
 
-    clusterdata, origdata = load_signal_data()
-    cov_ratio = plot_single(clusterdata, origdata, args.radius, args.n_clusters)
+    clusterdata, origdata = load_signal_data(remove_features, prints=True)
+    cov_ratio = plot_single(args.radius, args.n_clusters, remove_features, feature_weighting)
     print(f"Coverage ratio: {cov_ratio}")
 
-    run_experiment(variant=args.variant)
+    run_experiment(remove_features, feature_weighting, variant=args.variant)
     

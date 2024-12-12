@@ -8,7 +8,7 @@ import pandas as pd
 import numpy as np
 
 
-def load_signal_data():
+def load_signal_data(remove_features=None, prints=None):
     
     cwd = os.getcwd()
     df_raw = pd.read_csv(f"{cwd}/data/signal_metrics.csv")
@@ -24,8 +24,9 @@ def load_signal_data():
     # keep only those rows with the 10 most popular localities
     origdata = df_raw[df_raw["Locality"].isin(df_raw["Locality"].value_counts().head(10).index)].reset_index(drop=True).reset_index(drop=False)
     
-    print(origdata["Locality"].value_counts())
-    print('number of rows:', origdata.shape[0])
+    if prints:
+        print(origdata["Locality"].value_counts())
+        print('number of rows:', origdata.shape[0])
     
     origdata = origdata.rename(columns={'index': 'node'})
 
@@ -34,15 +35,19 @@ def load_signal_data():
                 "Network Type", 
                 "Signal Strength (dBm)", 
                 "Data Throughput (Mbps)"]
-
-    origdata = origdata[features]
-    clusterdata = origdata.copy()
-
     feature_order = ["Longitude",
                      "Latitude", 
                      "Signal Strength (dBm)", 
                      "Data Throughput (Mbps)",
                      "Network Type"]
+    
+    if remove_features:
+        features = [feature for feature in features if feature not in remove_features]
+        feature_order = [feature for feature in feature_order if feature not in remove_features]
+
+    origdata = origdata[features]
+    
+    clusterdata = origdata.copy()
 
     clusterdata = clusterdata[feature_order]
 

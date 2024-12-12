@@ -1,0 +1,26 @@
+% This file was created with tikzplotly version 0.1.7.
+\pgfplotstableread{data0 wide_variable_0 wide_variable_1
+1 0.32285714285714284 0.3040133779264214
+2 0.39754464285714286 0.3905239687848384
+3 0.4581696428571429 0.4602006688963211
+4 0.5150892857142857 0.5207357859531773
+5 0.5657142857142857 0.5756967670011148
+6 0.5983482142857143 0.6062430323299888
+}\dataZ
+
+\begin{tikzpicture}
+
+\definecolor{636efa}{HTML}{636efa}
+\definecolor{EF553B}{HTML}{EF553B}
+
+\begin{axis}[
+title=Comparison of Line Averages,
+xlabel=x,
+ylabel=value
+]
+\addplot+ [mark=none, solid, color=636efa] table[y=wide_variable_0] {\dataZ};
+\addlegendentry{wide\_variable\_0}
+\addplot+ [mark=none, solid, color=EF553B] table[y=wide_variable_1] {\dataZ};
+\addlegendentry{wide\_variable\_1}
+\end{axis}
+\end{tikzpicture}
